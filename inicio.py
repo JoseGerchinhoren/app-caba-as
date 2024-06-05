@@ -69,14 +69,12 @@ def logout():
     st.success("Sesión cerrada exitosamente")
 
 def main():    
-    st.markdown("<h1 style='text-align: center; color:yellow;'>Reservas Cabañas Don Gomez</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center;'>Reservas Cabañas Don Pepe</h1>", unsafe_allow_html=True)
 
     # st.image("img/logo-six-gym-fondo-amarillo.png", use_column_width= "always")
 
     if logged_in:
         st.sidebar.title("Menú")
-
-        # st.subheader(f"Bienvenido/a, {user_nombre_apellido}!")
 
         if user_rol == "admin":
             selected_option = st.sidebar.selectbox("Seleccione una opción:", ["Reservas","Usuarios"])
