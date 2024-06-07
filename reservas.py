@@ -23,7 +23,7 @@ def cargar_dataframe_desde_s3(s3, bucket_name):
         return pd.read_csv(io.BytesIO(response['Body'].read()))
     except s3.exceptions.NoSuchKey:
         st.warning("No se encontró el archivo CSV en S3.")
-        return pd.DataFrame(columns=['idReserva', 'cabaña', 'fechaIngreso', 'fechaEgreso', 'nombreCliente', 'edadCliente'])
+        return pd.DataFrame(columns=['idReserva', 'cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'nombreCliente', 'edadCliente', 'cantidadPersonas', 'origenReserva'])
 
 def upload_to_s3(data, s3, bucket_name):
     csv_filename = "reservasCabana.csv"
@@ -35,15 +35,19 @@ def upload_to_s3(data, s3, bucket_name):
 def generate_id(reservas):
     return max(reservas['idReserva'].max() + 1, 1) if not reservas.empty else 1
 
-def add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, nombreCliente, edadCliente):
+def add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, edadCliente, cantidadPersonas, origenReserva):
     idReserva = generate_id(reservas)
     nueva_reserva = pd.DataFrame({
         'idReserva': [idReserva],
         'cabaña': [cabaña],
         'fechaIngreso': [fechaIngreso],
         'fechaEgreso': [fechaEgreso],
+        'estado': [estado],
+        'pago': [pago],
         'nombreCliente': [nombreCliente],
-        'edadCliente': [edadCliente]
+        'edadCliente': [edadCliente],
+        'cantidadPersonas': [cantidadPersonas],
+        'origenReserva': [origenReserva]
     })
     return pd.concat([reservas, nueva_reserva], ignore_index=True)
 
@@ -109,11 +113,17 @@ def main():
         fechaEgreso = st.date_input("Fecha de Egreso")
         nombreCliente = st.text_input("Nombre del Cliente")
         edadCliente = st.number_input("Edad del Cliente", min_value=0, max_value=120, step=1)
+        cantidadPersonas = st.number_input("Cantidad de Personas", min_value=1, step=1)
+        origenReserva = st.text_input("Origen de la Reserva", placeholder="Ej: Booking, Facebook, etc.")
+        estado = st.selectbox("Estado", ["Sin seña", "Señado", "Cancelado", "Pagado"])
+        pago = 0
+        if estado in ["Señado", "Pagado"]:
+            pago = st.number_input("Monto del Pago", min_value=0, step=1)
         
         submit = st.button("Guardar Reserva")
         
         if submit:
-            reservas = add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, nombreCliente, edadCliente)
+            reservas = add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, edadCliente, cantidadPersonas, origenReserva)
             upload_to_s3(reservas, s3, bucket_name)
             st.success("Reserva guardada con éxito")
     

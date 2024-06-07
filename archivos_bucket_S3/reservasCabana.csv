@@ -1,1 +1,1 @@
-idReserva,cabaña,fechaIngreso,fechaEgreso,nombreCliente,edadCliente
+idReserva,cabaña,fechaIngreso,fechaEgreso,estado,pago,nombreCliente,edadCliente,cantidadPersonas,origenReserva

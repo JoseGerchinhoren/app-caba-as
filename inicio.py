@@ -79,7 +79,6 @@ def main():
         if user_rol == "admin":
             selected_option = st.sidebar.selectbox("Seleccione una opción:", ["Reservas","Usuarios"])
             if selected_option == 'Reservas':
-                st.title('Reservas')
                 reservas()
 
             if selected_option == "Usuarios":
