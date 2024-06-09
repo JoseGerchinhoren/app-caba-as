@@ -3,7 +3,7 @@ import pandas as pd
 import boto3
 import io
 from io import StringIO
-from streamlit.components.v1 import html
+from datetime import datetime
 
 # Obtener credenciales
 from config import cargar_configuracion
@@ -58,7 +58,7 @@ def mostrar_calendario(reservas):
     events = []
     for _, row in reservas.iterrows():
         event = {
-            'title': f"{row['nombreCliente']} (Cabaña {row['cabaña']})",
+            'title': f"{row['nombreCliente']} (C{row['cabaña']})",
             'start': row['fechaIngreso'],
             'end': row['fechaEgreso']
         }
@@ -101,13 +101,17 @@ def mostrar_calendario(reservas):
     
     st.components.v1.html(html_code, height=600)
 
+def editar_reserva(reservas, idReserva, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva):
+    reservas.loc[reservas['idReserva'] == idReserva, ['cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'nombreCliente', 'contacto', 'edadCliente', 'cantidadPersonas', 'origenReserva']] = [cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva]
+    return reservas
+
 def main():
     # Conectar a S3 y cargar datos
     s3, bucket_name = conectar_s3()
     reservas = cargar_dataframe_desde_s3(s3, bucket_name)
     
     # Interfaz de usuario
-    st.title("Gestión de Reservas de Cabañas")
+    st.header("Gestión de Reservas de Cabañas")
     
     # Sección para ingresar nueva reserva
     with st.expander("Ingresar Nueva Reserva"):
@@ -147,6 +151,38 @@ def main():
         # Mostrar calendario con reservas
         st.subheader("Calendario de Reservas")
         mostrar_calendario(reservas_filtradas)
+
+    # Sección para editar reserva
+    with st.expander("Edita Reserva"):
+        id_reserva_editar = st.number_input("ID de la Reserva a Editar", min_value=None, step=1)
+        reserva_editar = reservas[reservas['idReserva'] == id_reserva_editar]
+        if not reserva_editar.empty:
+            cabañas_disponibles = [str(x) for x in [1, 2]]
+            cabaña_editar = st.selectbox("Cabaña", cabañas_disponibles, index=cabañas_disponibles.index(str(reserva_editar['cabaña'].iloc[0])), key=f"cabaña_{id_reserva_editar}")
+            # Obtener el valor de fecha en formato datetime
+            fecha_ingreso_valor = datetime.strptime(reserva_editar['fechaIngreso'].iloc[0], '%Y-%m-%d').date()
+            # Utilizar el valor convertido en el date_input
+            fechaIngreso_editar = st.date_input("Fecha de Ingreso", value=fecha_ingreso_valor) 
+            fecha_egreso_valor = datetime.strptime(reserva_editar['fechaEgreso'].iloc[0], '%Y-%m-%d').date()
+            fechaEgreso_editar = st.date_input("Fecha de Egreso", value=fecha_egreso_valor)
+            nombreCliente_editar = st.text_input("Nombre del Cliente", value=reserva_editar['nombreCliente'].iloc[0])
+            contacto_editar = st.text_input("Contacto", value=reserva_editar['contacto'].iloc[0])
+            edadCliente_editar = st.number_input("Edad del Cliente", min_value=0, max_value=120, step=1, value=reserva_editar['edadCliente'].iloc[0])
+            cantidadPersonas_editar = st.number_input("Cantidad de Personas", min_value=1, step=1, value=reserva_editar['cantidadPersonas'].iloc[0])
+            origenReserva_editar = st.text_input("Origen de la Reserva", placeholder="Ej: Booking, Facebook, etc.", value=reserva_editar['origenReserva'].iloc[0])
+            estado_editar = st.selectbox("Estado", ["Sin seña", "Señado", "Cancelado", "Pagado"], index=["Sin seña", "Señado", "Cancelado", "Pagado"].index(reserva_editar['estado'].iloc[0]), key=f"estado_{id_reserva_editar}")
+            pago_editar = 0
+            if estado_editar in ["Señado", "Pagado"]:
+                pago_editar = st.number_input("Monto del Pago", min_value=0, step=1, value=reserva_editar['pago'].iloc[0])
+
+            submit_editar = st.button("Guardar Cambios")
+
+            if submit_editar:
+                reservas = editar_reserva(reservas, id_reserva_editar, cabaña_editar, fechaIngreso_editar, fechaEgreso_editar, estado_editar, pago_editar, nombreCliente_editar, contacto_editar, edadCliente_editar, cantidadPersonas_editar, origenReserva_editar)
+                upload_to_s3(reservas, s3, bucket_name)
+                st.success("Reserva editada con éxito")
+        else:
+            st.warning("No se encontró una reserva con ese ID")
 
 if __name__ == '__main__':
     main()
