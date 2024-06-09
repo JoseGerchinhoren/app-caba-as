@@ -61,7 +61,8 @@ def mostrar_calendario(reservas):
         event = {
             'title': f"{row['nombreCliente']} (C{row['cabaña']})",
             'start': row['fechaIngreso'],
-            'end': row['fechaEgreso']
+            'end': row['fechaEgreso'],
+            'className': f'cabin-{row["cabaña"]}'
         }
         events.append(event)
     
@@ -77,9 +78,14 @@ def mostrar_calendario(reservas):
             body {{
                 color: white;
             }}
-            .fc-event {{
+            .fc-event.cabin-1 {{
                 color: white !important;
-                background-color: #007bff !important;
+                background-color: #007bff !important;  /* Azul */
+                border: none !important;
+            }}
+            .fc-event.cabin-2 {{
+                color: white !important;
+                background-color: #28a745 !important;  /* Verde */
                 border: none !important;
             }}
         </style>
@@ -100,7 +106,7 @@ def mostrar_calendario(reservas):
     </html>
     """
     
-    st.components.v1.html(html_code, height=600)
+    components.html(html_code, height=600)
 
 def editar_reserva(reservas, idReserva, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva):
     reservas.loc[reservas['idReserva'] == idReserva, ['cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'nombreCliente', 'contacto', 'edadCliente', 'cantidadPersonas', 'origenReserva']] = [cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva]
