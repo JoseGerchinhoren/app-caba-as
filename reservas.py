@@ -58,13 +58,14 @@ def add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, nomb
 def mostrar_calendario(reservas):
     events = []
     for _, row in reservas.iterrows():
-        event = {
-            'title': f"{row['nombreCliente']} (C{row['cabaña']})",
-            'start': row['fechaIngreso'],
-            'end': row['fechaEgreso'],
-            'className': f'cabin-{row["cabaña"]}'
-        }
-        events.append(event)
+        if row['estado'] != 'Cancelado':  # Filtrar reservas canceladas
+            event = {
+                'title': f"{row['nombreCliente']} (C{row['cabaña']})",
+                'start': row['fechaIngreso'],
+                'end': row['fechaEgreso'],
+                'className': f'cabin-{row["cabaña"]}'
+            }
+            events.append(event)
     
     events_js = str(events).replace("'", '"')
 
