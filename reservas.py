@@ -146,11 +146,20 @@ def main():
     # Sección para visualizar reservas
     with st.expander("Ver Reservas"):
         filtro_cabaña = st.selectbox("Filtrar por Cabaña", [1, 2, "Todas"], index=2)
-        
+        filtro_estado = st.selectbox("Filtrar por Estado", ["Sin filtro", "Sin seña", "Señado", "Cancelado", "Pagado"], index=0)
+        origen_reserva_unicos = reservas['origenReserva'].unique().tolist()
+        filtro_origen = st.selectbox("Filtrar por Origen de Reserva", ["Sin filtro"] + origen_reserva_unicos, index=0)
+
         if filtro_cabaña != "Todas":
             reservas_filtradas = reservas[reservas['cabaña'] == int(filtro_cabaña)]
         else:
             reservas_filtradas = reservas
+
+        if filtro_estado != "Sin filtro":
+            reservas_filtradas = reservas_filtradas[reservas_filtradas['estado'] == filtro_estado]
+
+        if filtro_origen != "Sin filtro":
+            reservas_filtradas = reservas_filtradas[reservas_filtradas['origenReserva'] == filtro_origen]
         
         reservas_filtradas = reservas_filtradas.sort_values(by='idReserva', ascending=False)
         
@@ -161,7 +170,7 @@ def main():
         mostrar_calendario(reservas_filtradas)
 
     # Sección para editar reserva
-    with st.expander("Edita Reserva"):
+    with st.expander("Editar Reserva"):
         id_reserva_editar = st.number_input("ID de la Reserva a Editar", min_value=None, step=1)
         reserva_editar = reservas[reservas['idReserva'] == id_reserva_editar]
         if not reserva_editar.empty:
