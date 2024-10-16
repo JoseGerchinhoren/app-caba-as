@@ -24,7 +24,7 @@ def cargar_dataframe_desde_s3(s3, bucket_name):
         return pd.read_csv(io.BytesIO(response['Body'].read()))
     except s3.exceptions.NoSuchKey:
         st.warning("No se encontró el archivo CSV en S3.")
-        return pd.DataFrame(columns=['idReserva', 'cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'nombreCliente', 'contacto', 'edadCliente', 'cantidadPersonas', 'origenReserva', 'fechaReserva'])
+        return pd.DataFrame(columns=['idReserva', 'cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'aPagar', 'nombreCliente', 'contacto', 'edadCliente', 'cantidadPersonas', 'origenReserva', 'fechaReserva'])
 
 def upload_to_s3(data, s3, bucket_name):
     csv_filename = "reservasCabana.csv"
@@ -36,7 +36,7 @@ def upload_to_s3(data, s3, bucket_name):
 def generate_id(reservas):
     return max(reservas['idReserva'].max() + 1, 1) if not reservas.empty else 1
 
-def add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva):
+def add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, aPagar, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva):
     idReserva = generate_id(reservas)
     fecha_reserva = obtener_fecha_argentina().date()  # Obtener la fecha de la reserva
     nueva_reserva = pd.DataFrame({
@@ -46,6 +46,7 @@ def add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, nomb
         'fechaEgreso': [fechaEgreso],
         'estado': [estado],
         'pago': [pago],
+        'aPagar': [aPagar],  # Agregar el campo aPagar
         'nombreCliente': [nombreCliente],
         'contacto': [contacto],
         'edadCliente': [edadCliente],
@@ -109,8 +110,8 @@ def mostrar_calendario(reservas):
     
     components.html(html_code, height=600)
 
-def editar_reserva(reservas, idReserva, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva):
-    reservas.loc[reservas['idReserva'] == idReserva, ['cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'nombreCliente', 'contacto', 'edadCliente', 'cantidadPersonas', 'origenReserva']] = [cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva]
+def editar_reserva(reservas, idReserva, cabaña, fechaIngreso, fechaEgreso, estado, pago, aPagar, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva):
+    reservas.loc[reservas['idReserva'] == idReserva, ['cabaña', 'fechaIngreso', 'fechaEgreso', 'estado', 'pago', 'aPagar', 'nombreCliente', 'contacto', 'edadCliente', 'cantidadPersonas', 'origenReserva']] = [cabaña, fechaIngreso, fechaEgreso, estado, pago, aPagar, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva]
     return reservas
 
 def main():
@@ -135,11 +136,12 @@ def main():
         pago = 0
         if estado in ["Señado", "Pagado"]:
             pago = st.number_input("Monto del Pago", min_value=0, step=1)
+        aPagar = st.number_input("Monto a Pagar", min_value=0, step=1)  # Campo aPagar
         
         submit = st.button("Guardar Reserva")
         
         if submit:
-            reservas = add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva)
+            reservas = add_reserva(reservas, cabaña, fechaIngreso, fechaEgreso, estado, pago, aPagar, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva)
             upload_to_s3(reservas, s3, bucket_name)
             st.success("Reserva guardada con éxito")
     
@@ -171,35 +173,29 @@ def main():
 
     # Sección para editar reserva
     with st.expander("Editar Reserva"):
-        id_reserva_editar = st.number_input("ID de la Reserva a Editar", min_value=None, step=1)
-        reserva_editar = reservas[reservas['idReserva'] == id_reserva_editar]
-        if not reserva_editar.empty:
-            cabañas_disponibles = [str(x) for x in [1, 2]]
-            cabaña_editar = st.selectbox("Cabaña", cabañas_disponibles, index=cabañas_disponibles.index(str(reserva_editar['cabaña'].iloc[0])), key=f"cabaña_{id_reserva_editar}")
-            # Obtener el valor de fecha en formato datetime
-            fecha_ingreso_valor = datetime.strptime(reserva_editar['fechaIngreso'].iloc[0], '%Y-%m-%d').date()
-            # Utilizar el valor convertido en el date_input
-            fechaIngreso_editar = st.date_input("Fecha de Ingreso", value=fecha_ingreso_valor) 
-            fecha_egreso_valor = datetime.strptime(reserva_editar['fechaEgreso'].iloc[0], '%Y-%m-%d').date()
-            fechaEgreso_editar = st.date_input("Fecha de Egreso", value=fecha_egreso_valor)
-            nombreCliente_editar = st.text_input("Nombre del Cliente", value=reserva_editar['nombreCliente'].iloc[0])
-            contacto_editar = st.text_input("Contacto", value=reserva_editar['contacto'].iloc[0])
-            edadCliente_editar = st.number_input("Edad del Cliente", min_value=0, max_value=120, step=1, value=reserva_editar['edadCliente'].iloc[0])
-            cantidadPersonas_editar = st.number_input("Cantidad de Personas", min_value=1, step=1, value=reserva_editar['cantidadPersonas'].iloc[0])
-            origenReserva_editar = st.text_input("Origen de la Reserva", placeholder="Ej: Booking, Facebook, etc.", value=reserva_editar['origenReserva'].iloc[0])
-            estado_editar = st.selectbox("Estado", ["Sin seña", "Señado", "Cancelado", "Pagado"], index=["Sin seña", "Señado", "Cancelado", "Pagado"].index(reserva_editar['estado'].iloc[0]), key=f"estado_{id_reserva_editar}")
-            pago_editar = 0
-            if estado_editar in ["Señado", "Pagado"]:
-                pago_editar = st.number_input("Monto del Pago", min_value=0, step=1, value=reserva_editar['pago'].iloc[0])
+        id_reserva_editar = st.number_input("ID de la Reserva", min_value=1, step=1)
+        if id_reserva_editar in reservas['idReserva'].values:
+            cabaña = st.selectbox("Cabaña", [1, 2], index=int(reservas[reservas['idReserva'] == id_reserva_editar]['cabaña'].values[0]) - 1, key="cabaña_editar")
+            fechaIngreso = st.date_input("Fecha de Ingreso", value=pd.to_datetime(reservas[reservas['idReserva'] == id_reserva_editar]['fechaIngreso'].values[0]).date())
+            fechaEgreso = st.date_input("Fecha de Egreso", value=pd.to_datetime(reservas[reservas['idReserva'] == id_reserva_editar]['fechaEgreso'].values[0]).date())
+            nombreCliente = st.text_input("Nombre del Cliente", value=reservas[reservas['idReserva'] == id_reserva_editar]['nombreCliente'].values[0])
+            contacto = st.text_input("Contacto", value=reservas[reservas['idReserva'] == id_reserva_editar]['contacto'].values[0])
+            edadCliente = st.number_input("Edad del Cliente", min_value=0, max_value=120, step=1, value=int(reservas[reservas['idReserva'] == id_reserva_editar]['edadCliente'].values[0]))
+            cantidadPersonas = st.number_input("Cantidad de Personas", min_value=1, step=1, value=int(reservas[reservas['idReserva'] == id_reserva_editar]['cantidadPersonas'].values[0]))
+            origenReserva = st.text_input("Origen de la Reserva", value=reservas[reservas['idReserva'] == id_reserva_editar]['origenReserva'].values[0])
+            estado = st.selectbox("Estado", ["Sin seña", "Señado", "Cancelado", "Pagado"], index=["Sin seña", "Señado", "Cancelado", "Pagado"].index(reservas[reservas['idReserva'] == id_reserva_editar]['estado'].values[0]))
+            pago = 0
+            if estado in ["Señado", "Pagado"]:
+                pago = st.number_input("Monto del Pago", min_value=0, step=1, value=int(reservas[reservas['idReserva'] == id_reserva_editar]['pago'].values[0]))
+            aPagar = st.number_input("Monto a Pagar", min_value=0, step=1, value=int(reservas[reservas['idReserva'] == id_reserva_editar]['aPagar'].values[0]))  # Campo aPagar
 
-            submit_editar = st.button("Guardar Cambios")
-
+            submit_editar = st.button("Editar Reserva")
             if submit_editar:
-                reservas = editar_reserva(reservas, id_reserva_editar, cabaña_editar, fechaIngreso_editar, fechaEgreso_editar, estado_editar, pago_editar, nombreCliente_editar, contacto_editar, edadCliente_editar, cantidadPersonas_editar, origenReserva_editar)
+                reservas = editar_reserva(reservas, id_reserva_editar, cabaña, fechaIngreso, fechaEgreso, estado, pago, aPagar, nombreCliente, contacto, edadCliente, cantidadPersonas, origenReserva)
                 upload_to_s3(reservas, s3, bucket_name)
-                st.success("Reserva editada con éxito")
+                st.success("Reserva actualizada con éxito")
         else:
-            st.warning("No se encontró una reserva con ese ID")
+            st.warning("Por favor, ingrese un ID de reserva válido.")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
